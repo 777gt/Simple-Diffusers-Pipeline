@@ -1,5 +1,15 @@
+import argparse
+parser = argparse.ArgumentParser(description='')
+parser.add_argument('--model', type=str, help='Path to the model file')
+args = parser.parse_args()
+model_path = args.model
+print(f"Model: {model_path}")
+negative_template='''
+blurry, lowres, text, error, anime, waifu, 3d, art, drawing, painting, extra fingers
+'''.strip()
+positive_template='trendy girl, beautiful, gorgeous woman, soft focus, perfect composition, photo, ultra detailed skin, intense lighting, holding iphone, at the beach, looking straight forward'
 import torch
-model_path = "./cyberrealistic_v32.safetensors"#@param {type:"string"}
+#model_path = "./cyberrealistic_v32.safetensors"#@param {type:"string"}
 from diffusers import StableDiffusionPipeline, StableDiffusionImg2ImgPipeline, StableDiffusionInpaintPipeline
 device = "cuda" #@param ["cuda", "cpu"]
 if model_path.endswith(".safetensors"):
@@ -113,25 +123,20 @@ def save(img):
     img.save("temp.jpg")
     return "./temp.jpg"
 
-codeforming = [
-            "python",
-            "CodeFormer/inference_codeformer.py",
-            "-w",
-            "$strength",
-            "--input_path",
-            "CodeFormer/inputs/temp.jpg",
-            "--face_upsample",
-            "--bg_upsampler",
-            "realesrgan"
-        ]
-
 def upscale(dict, number, output):
-    strength = float(number)
-    str_strength = str(number)
+    strength = float(float(1) - float(number))
+    str_strength = str(strength)
+    command = "CodeFormer/inference_codeformer.py"
+    arguments = [
+        "--fidelity_weight", str(strength),
+        "--input_path", "CodeFormer/inputs/temp.jpg",
+        "--face_upsample",
+        "--bg_upsampler", "realesrgan"
+    ]
     if output is not None:
         img = output
         img.save("./CodeFormer/inputs/temp.jpg")
-        subprocess.run(codeforming, check=True)
+        subprocess.run(["python", command] + arguments, check=True)
         if str_strength == '1':
             out=Image.open(f"/content/results/test_img_1.0/final_results/temp.png")
             return out, f"/content/results/test_img_1.0/final_results/temp.png"
@@ -144,7 +149,7 @@ def upscale(dict, number, output):
         else:
             img = dict["image"]
             img.save("./CodeFormer/inputs/temp.jpg")
-            subprocess.run(codeforming, check=True)
+            subprocess.run(["python", command] + arguments, check=True)
             if str_strength == '1':
                 out=Image.open(f"/content/results/test_img_1.0/final_results/temp.png")
                 return out, f"/content/results/test_img_1.0/final_results/temp.png"
@@ -180,7 +185,7 @@ with image_blocks as demo:
                     full_width=False,
                 )
                 reuse = gr.Radio(label="Latent:",value="Reuse",choices=["New","Reuse"])
-                strength = gr.Slider(label="Denoising:", value=0.75, minimum=0, maximum=1, step=0.01)
+                strength = gr.Slider(label="Creativity:", value=0.75, minimum=0, maximum=1, step=0.01)
                 btn.click(fn=predict, inputs=[image, prompt, negative_prompt,height,width,num_inference_steps,guidance_scale, reuse, strength], outputs=[output_image])
                 save_button = gr.Button("Save")
             with gr.Row():
@@ -190,4 +195,4 @@ with image_blocks as demo:
                 feedback_btn.click(fn=feedback, inputs=[output_image], outputs=[image])
 
 ipd.clear_output()
-image_blocks.launch(share=False, debug=True)
+image_blocks.launch(share=True, debug=True)

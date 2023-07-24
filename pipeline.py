@@ -12,6 +12,8 @@ from torch import autocast
 from matplotlib import pyplot as plt
 from torchvision import transforms
 import base64
+import subprocess
+
 latents = None
 if not "loaded" in locals():
     txt2img = StableDiffusionPipeline.from_single_file(model_path, safety_checker=None, requires_safety_checker=False)
@@ -111,13 +113,25 @@ def save(img):
     img.save("temp.jpg")
     return "./temp.jpg"
 
+codeforming = [
+            "python",
+            "CodeFormer/inference_codeformer.py",
+            "-w",
+            "$strength",
+            "--input_path",
+            "CodeFormer/inputs/temp.jpg",
+            "--face_upsample",
+            "--bg_upsampler",
+            "realesrgan"
+        ]
+
 def upscale(dict, number, output):
     strength = float(number)
     str_strength = str(number)
     if output is not None:
         img = output
         img.save("./CodeFormer/inputs/temp.jpg")
-        !python CodeFormer/inference_codeformer.py -w $strength --input_path CodeFormer/inputs/temp.jpg --face_upsample --bg_upsampler realesrgan
+        subprocess.run(codeforming, check=True)
         if str_strength == '1':
             out=Image.open(f"/content/results/test_img_1.0/final_results/temp.png")
             return out, f"/content/results/test_img_1.0/final_results/temp.png"
@@ -130,7 +144,7 @@ def upscale(dict, number, output):
         else:
             img = dict["image"]
             img.save("./CodeFormer/inputs/temp.jpg")
-            !python CodeFormer/inference_codeformer.py -w $strength --input_path CodeFormer/inputs/temp.jpg --face_upsample --bg_upsampler realesrgan
+            subprocess.run(codeforming, check=True)
             if str_strength == '1':
                 out=Image.open(f"/content/results/test_img_1.0/final_results/temp.png")
                 return out, f"/content/results/test_img_1.0/final_results/temp.png"
